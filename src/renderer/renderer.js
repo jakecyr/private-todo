@@ -152,9 +152,19 @@ function bindNav() {
 
   el('#add-project-btn').addEventListener('click', async () => {
     const name = prompt('New project name:');
-    if (!name) return;
-    await api.addProject(name.trim());
-    await loadAndRender();
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    try {
+      const created = await api.addProject(trimmed);
+      await loadAndRender();
+      if (created?.id) {
+        state.view = { type: 'project', projectId: created.id };
+        renderAll();
+      }
+    } catch (err) {
+      console.error('addProject failed:', err);
+      alert(`Failed to add project: ${err?.message || err}`);
+    }
   });
 
   el('#export-btn').addEventListener('click', async () => {

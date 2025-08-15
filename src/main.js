@@ -337,14 +337,25 @@ ipcMain.handle('security:lock', async () => {
 });
 
 // Projects
+
 ipcMain.handle('project:add', async (_evt, name) => {
   const s = await readSettings();
   const merged = await loadAllData(s);
+  const nm = String(name || '').trim();
+  if (!nm) throw new Error('Project name required');
+  // prevent dup by name (case-insensitive)
+  const exists = [...(merged.current.projects || []), ...(merged.archive.projects || [])].some(
+    (p) => p?.name?.toLowerCase() === nm.toLowerCase(),
+  );
+  if (exists) throw new Error('A project with that name already exists');
+
+  if (!Array.isArray(merged.current.projects)) merged.current.projects = [];
   const id = `proj_${randId()}`;
-  merged.current.projects.push({ id, name, createdAt: new Date().toISOString() });
+  merged.current.projects.push({ id, name: nm, createdAt: new Date().toISOString() });
   await saveCurrentAndMaybeArchive(s, merged);
-  return { id, name };
+  return { id, name: nm };
 });
+
 ipcMain.handle('project:rename', async (_evt, { id, name }) => {
   const s = await readSettings();
   const merged = await loadAllData(s);

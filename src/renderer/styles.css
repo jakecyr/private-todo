@@ -249,7 +249,6 @@ summary,
   align-items: center;
   gap: 8px;
 }
-
 /* ===== New Task Input ===== */
 .task-input {
   display: grid;
@@ -448,6 +447,22 @@ summary,
   gap: 8px;
   margin-top: 12px;
 }
+.modal-actions button {
+  background: #2a3647;
+  border: 1px solid #3a485d;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.02s ease, filter 0.15s ease;
+}
+.modal-actions button:hover {
+  filter: brightness(1.08);
+}
+.modal-actions button:active {
+  transform: translateY(1px);
+}
+
 .modal-card input[type='password'],
 .modal-card input[type='checkbox'] {
   width: 100%;
@@ -463,4 +478,44 @@ summary,
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* ===== Buttons (global) ===== */
+button {
+  transition: transform 0.02s ease, filter 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease;
+}
+button:active {
+  transform: translateY(1px);
+}
+
+/* Primary-ish buttons */
+#add-task-btn,
+.sidebar-footer button {
+  background: #2a3647;
+  border: 1px solid #3a485d;
+}
+#add-task-btn:hover,
+.sidebar-footer button:hover {
+  filter: brightness(1.08);
+}
+
+/* Project "+" button */
+#add-project-btn {
+  background: #223041;
+  border: 1px solid #334154;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+}
+#add-project-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* Nav active state */
+.nav-item.active,
+.nav-item:focus-visible {
+  background: #1e242c;
+  outline: 1px solid #2b3441;
 }
