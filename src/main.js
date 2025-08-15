@@ -62,8 +62,8 @@ app.on('window-all-closed', () => {
 async function createWindow() {
   console.log('Creating main window...');
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1000,
+    height: 700,
     minWidth: 800,
     minHeight: 600,
     title: 'Private Todo',
@@ -396,9 +396,11 @@ ipcMain.handle('security:unlock', async (_evt, { passcode }) => {
   });
 
   let key = null;
+  let biometricsAttempted = false;
 
   // Try biometrics first if enabled and available and no passcode provided
   if (!passcode && s.useBiometrics && biometricsAvailable()) {
+    biometricsAttempted = true;
     console.log('Biometrics are enabled and available, attempting biometric unlock...');
     try {
       console.log('About to prompt Touch ID...');
@@ -442,6 +444,26 @@ ipcMain.handle('security:unlock', async (_evt, { passcode }) => {
   key = await deriveKey(passcode, s);
   sessionKey = key;
   console.log('Unlocked successfully with passcode');
+  
+  // If biometrics are enabled, try to re-encrypt the key with biometrics after successful passcode unlock
+  if (s.useBiometrics && biometricsAvailable()) {
+    try {
+      console.log('Attempting to re-encrypt key with biometrics after successful passcode unlock...');
+      await keytar.setPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT, key.toString('base64'));
+      console.log('Successfully re-encrypted key with biometrics');
+      
+      // Update settings to ensure biometrics flag is set
+      if (!s.useBiometrics) {
+        s.useBiometrics = true;
+        await writeSettings(s);
+        console.log('Updated settings to enable biometrics');
+      }
+    } catch (e) {
+      console.log('Failed to re-encrypt key with biometrics:', e.message);
+      // Don't fail the unlock - user can still use passcode
+    }
+  }
+  
   return { ok: true, method: 'passcode' };
 });
 

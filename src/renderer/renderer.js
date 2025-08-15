@@ -492,10 +492,14 @@ function renderNewTaskProjectSelect() {
   if (state.view.type === 'project' && state.view.projectId) sel.value = state.view.projectId;
   else sel.value = 'inbox';
   
-  // Set default due date to today
+  // Set default due date to today only when on "Today" view
   const dueDateInput = el('#new-due');
   if (dueDateInput) {
-    dueDateInput.value = dateToYMD(new Date());
+    if (state.view.type === 'today') {
+      dueDateInput.value = dateToYMD(new Date());
+    } else {
+      dueDateInput.value = ''; // No default for other views
+    }
   }
 }
 
@@ -605,9 +609,7 @@ function renderWeekList(container) {
         addBtn.disabled = true; // Disable button after clearing
         await loadAndRender();
         
-        // Switch to week view to show the new task
-        state.view = { type: 'week', projectId: null };
-        renderAll();
+        // No need to change view or re-render since we're already in week view
       } catch (err) {
         console.error('Failed to add task:', err);
         alert(`Failed to add task: ${err?.message || err}`);
@@ -865,26 +867,14 @@ async function onAddTask() {
 
   // Clear inputs and close option panels
   el('#new-title').value = '';
-  if (el('#new-due')) el('#new-due').value = dateToYMD(new Date());
+  if (el('#new-due')) el('#new-due').value = ''; // Clear due date instead of setting to today
   if (el('#new-tags')) el('#new-tags').value = '';
   closeAllOptionInputs();
   
   await loadAndRender();
 
-  if (created?.dueDate) {
-    const todayYMD = dateToYMD(new Date());
-    const inNext7 =
-      created.dueDate >= todayYMD && created.dueDate <= dateToYMD(addDays(new Date(), 6));
-    if (inNext7) {
-      state.view = { type: 'week', projectId: null };
-    } else {
-      state.view = { type: 'project', projectId: created.projectId || 'inbox' };
-    }
-  } else {
-    // No due date -> All is safest to ensure visibility
-    state.view = { type: 'all', projectId: null };
-  }
-  renderAll();
+  // Don't change the view - stay on whatever view the user was on
+  // renderAll(); // This is already called by loadAndRender()
 }
 
 /* ---------- Utilities ---------- */
