@@ -8,6 +8,7 @@ const state = {
   db: null,
   view: { type: 'today', projectId: null },
   showCompleted: false,
+  searchQuery: '',
   security: { encryptionEnabled: false, useBiometrics: false, biometricsAvailable: false },
   unlocked: false,
 };
@@ -285,13 +286,20 @@ function bindNav() {
 }
 
 function bindInputs() {
+  // Handle search input
+  const search = el('#search');
+  search?.addEventListener('input', (e) => {
+    state.searchQuery = e.target.value.toLowerCase();
+    renderTasks();
+  });
+
   // Handle Enter key submission for new task
   el('#new-title').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       onAddTask();
     }
   });
-  
+
   // Handle option button clicks
   bindOptionButtons();
 }
@@ -519,12 +527,25 @@ function renderTasks() {
   const container = el('#task-container');
   container.innerHTML = '';
 
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    const tasks = (state.db?.tasks || []).filter((t) =>
+      t.title.toLowerCase().includes(q)
+    );
+    if (!tasks.length) {
+      container.innerHTML = `<div style="padding:16px;color:#8a94a6;">No matching tasks.</div>`;
+      return;
+    }
+    sortTasks(tasks).forEach((t) => container.appendChild(renderTaskItem(t)));
+    return;
+  }
+
   if (state.view.type === 'week') {
     return renderWeekList(container);
   }
 
   const tasks = getFilteredTasks();
-  
+
   if (!tasks.length) {
     container.innerHTML = `<div style="padding:16px;color:#8a94a6;">No tasks yet.</div>`;
     return;
