@@ -45,25 +45,37 @@ jobs:
           name: dmg
           path: dist/*.dmg
 
-      - name: Create Release
+      - name: Create or Update Release
         if: startsWith(github.ref, 'refs/tags/')
         id: create_release
-        uses: actions/create-release@v1
+        run: |
+          # Check if release already exists
+          if gh release view ${{ github.ref_name }} >/dev/null 2>&1; then
+            echo "Release ${{ github.ref_name }} already exists, will upload assets there"
+            echo "upload_url=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq .upload_url | sed 's/{?name,label}//')" >> $GITHUB_OUTPUT
+          else
+            echo "Creating new release ${{ github.ref_name }}"
+            gh release create ${{ github.ref_name }} \
+              --title "Release ${{ github.ref_name }}" \
+              --notes "Private Todo ${{ github.ref_name }}" \
+              --draft=false \
+              --prerelease=false
+            echo "upload_url=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq .upload_url | sed 's/{?name,label}//')" >> $GITHUB_OUTPUT
+          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload DMG to Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
+        run: |
+          # Find the DMG file
+          DMG_FILE=$(find dist -name "*.dmg" | head -n 1)
+          if [ -n "$DMG_FILE" ]; then
+            echo "Uploading $DMG_FILE to release"
+            gh release upload ${{ github.ref_name }} "$DMG_FILE" --clobber
+          else
+            echo "No DMG file found in dist directory"
+            exit 1
+          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/*.dmg
-          asset_name: Private-Todo-${{ github.ref_name }}-macOS.dmg
-          asset_content_type: application/octet-stream
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
