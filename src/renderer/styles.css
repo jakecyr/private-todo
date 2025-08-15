@@ -288,6 +288,18 @@ summary,
   font-weight: 600;
 }
 
+.main-header .search-input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.main-header .search-input::placeholder {
+  color: var(--muted);
+}
+
 .spacer {
   flex: 1;
 }
