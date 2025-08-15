@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Todoist Offline</title>
+    <title>Private Todo</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
@@ -18,7 +18,7 @@
         <button class="tb-btn tb-max" title="Maximize"></button>
       </div>
       <div class="tb-center">
-        <span class="titlebar-title">Todoist Offline</span>
+        <span class="titlebar-title">Private Todo</span>
       </div>
       <div class="tb-right"></div>
     </div>
@@ -26,7 +26,7 @@
     <div id="app">
       <aside class="sidebar">
         <div class="sidebar-header">
-          <h1>Todoist Offline</h1>
+          <h1>Private Todo</h1>
         </div>
 
         <nav class="nav">
@@ -53,24 +53,58 @@
         <header class="main-header">
           <h2 id="view-title">Today</h2>
           <div class="spacer"></div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle-completed" />
-            <span>Show completed</span>
-          </label>
         </header>
 
         <section class="task-input">
-          <input id="new-title" placeholder="Task title" />
-          <input id="new-due" type="date" />
-          <select id="new-priority">
-            <option value="0">Priority: None</option>
-            <option value="1">Priority: 1</option>
-            <option value="2">Priority: 2</option>
-            <option value="3">Priority: 3</option>
-          </select>
-          <input id="new-tags" placeholder="tags (comma-separated)" />
-          <select id="new-project"></select>
-          <button id="add-task-btn">Add Task</button>
+          <div class="task-input-main">
+            <input id="new-title" placeholder="Add a new task..." />
+          </div>
+          <div class="task-input-options">
+            <div class="option-group">
+              <button class="option-btn" id="due-date-btn" title="Set due date">
+                <span class="option-icon">📅</span>
+                <span class="option-label">Date</span>
+              </button>
+              <div class="option-input" id="due-date-input" style="display: none;">
+                <input type="date" id="new-due" />
+              </div>
+            </div>
+
+            <div class="option-group">
+              <button class="option-btn" id="priority-btn" title="Set priority">
+                <span class="option-icon">⚡</span>
+                <span class="option-label">Priority</span>
+              </button>
+              <div class="option-input" id="priority-input" style="display: none">
+                <select id="new-priority">
+                  <option value="0">None</option>
+                  <option value="1" style="color: var(--priority-1); font-weight: 600">1</option>
+                  <option value="2" style="color: var(--priority-2); font-weight: 600">2</option>
+                  <option value="3" style="color: var(--priority-3); font-weight: 600">3</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <button class="option-btn" id="tags-btn" title="Add tags">
+                <span class="option-icon">🏷️</span>
+                <span class="option-label">Tags</span>
+              </button>
+              <div class="option-input" id="tags-input" style="display: none">
+                <input type="text" id="new-tags" placeholder="tags (comma-separated)" />
+              </div>
+            </div>
+
+            <div class="option-group">
+              <button class="option-btn" id="project-btn" title="Set project">
+                <span class="option-icon">📁</span>
+                <span class="option-label">Project</span>
+              </button>
+              <div class="option-input" id="project-input" style="display: none">
+                <select id="new-project"></select>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="task-container" class="task-container"></section>

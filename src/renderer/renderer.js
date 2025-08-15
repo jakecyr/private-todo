@@ -47,7 +47,39 @@ async function init() {
 
 /* ---------- Security flows ---------- */
 async function unlockFlow() {
-  // Simple passcode modal; if biometrics is enabled, Touch ID prompt will appear in main before unlocking.
+  console.log('Unlock flow started, security config:', state.security);
+  
+  // If biometrics are enabled, try them first without showing passcode modal
+  if (state.security.useBiometrics && state.security.biometricsAvailable) {
+    try {
+      console.log('Attempting biometric unlock...');
+      const res = await api.securityUnlock(null); // Pass null to try biometrics first
+      console.log('Biometric unlock result:', res);
+      if (res && res.ok === false && res.code === 'NO_BIO_KEY') {
+        const choice = confirm(
+          'Touch ID succeeded, but no decryption key was found in your Keychain.\n\nThis usually happens if encryption was enabled without saving the key to Keychain, or the item was deleted.\n\nClick OK to use your passcode this time (and reseed the Keychain), or Cancel to abort.'
+        );
+        if (!choice) return; // user canceled
+        // fall through to passcode modal (do not auto-open without consent)
+      } else if (res && res.ok === false && res.code === 'NEED_PASSCODE') {
+        // Biometric path didn’t complete; proceed to passcode modal.
+      } else if (res && res.ok === false) {
+        alert(`Unlock failed: ${res.code || 'Unknown error'}`);
+        return; // abort
+      }
+      if (res?.ok) {
+        console.log('Biometric unlock successful');
+        state.unlocked = true;
+        return; // Exit here, don't show passcode modal
+      }
+    } catch (e) {
+      console.log('Biometrics failed, falling back to passcode:', e.message);
+      // Continue to passcode modal only if biometrics actually failed
+    }
+  }
+  
+  // Only show passcode modal if biometrics are not enabled or user agreed to use passcode after a biometric issue.
+  console.log('Showing passcode modal...');
   const pass = await promptModal({
     title: 'Unlock',
     bodyHTML: `
@@ -56,12 +88,16 @@ async function unlockFlow() {
     `,
     okText: 'Unlock',
   });
-  if (!pass) return; // user cancelled — they’ll see empty UI; can refresh to retry
+  if (!pass) return; // user cancelled — they'll see empty UI; can refresh to retry
 
   try {
     const res = await api.securityUnlock(pass);
-    if (res?.ok) state.unlocked = true;
+    if (res?.ok) {
+      console.log('Passcode unlock successful');
+      state.unlocked = true;
+    }
   } catch (e) {
+    console.error('Passcode unlock failed:', e);
     alert('Unlock failed. Try again.');
     return unlockFlow();
   }
@@ -110,11 +146,54 @@ function promptModal({ title, bodyHTML, okText = 'OK', cancelText = 'Cancel' }) 
       resolve(val);
     };
 
+    // Handle Enter key submission
+    const handleKeyPress = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        ok.click();
+      }
+    };
+
+    // Add keypress listeners to all input fields
+    const inputs = modal.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+      input.addEventListener('keypress', handleKeyPress);
+    });
+
+    // Focus the first input with autofocus or the first input available
+    setTimeout(() => {
+      const autofocusInput = modal.querySelector('[autofocus]');
+      const firstInput = modal.querySelector('input, textarea, select');
+      if (autofocusInput) {
+        autofocusInput.focus();
+      } else if (firstInput) {
+        firstInput.focus();
+      }
+    }, 100);
+
     ok.onclick = () => {
+      // Check for different input types
+      const projectName = el('#project-name')?.value;
+      const editTitle = el('#edit-title')?.value;
       const pass = el('#pass')?.value;
-      finish(pass ?? true);
+      
+      // Return the appropriate value based on what's in the modal
+      if (projectName !== undefined) finish(projectName);
+      else if (editTitle !== undefined) finish(true); // For edit modals, just return true
+      else if (pass !== undefined) finish(pass);
+      else finish(true); // Default fallback
     };
     cancel.onclick = () => finish(null);
+
+    // Clean up event listeners when modal is closed
+    const cleanup = () => {
+      inputs.forEach(input => {
+        input.removeEventListener('keypress', handleKeyPress);
+      });
+    };
+    
+    // Store cleanup function on modal element for later use
+    modal._cleanup = cleanup;
   });
 }
 function promptModalWithReturn(opts) {
@@ -140,6 +219,7 @@ function promptModalWithReturn(opts) {
 
 /* ---------- Binding ---------- */
 function bindNav() {
+  
   els('.nav-item').forEach((b) => {
     b.addEventListener('click', () => {
       const v = b.dataset.view;
@@ -151,9 +231,25 @@ function bindNav() {
   });
 
   el('#add-project-btn').addEventListener('click', async () => {
-    const name = prompt('New project name:');
-    const trimmed = (name || '').trim();
-    if (!trimmed) return;
+    const name = await promptModal({
+      title: 'New Project',
+      bodyHTML: `
+        <div class="form-group">
+          <label for="project-name">Project Name</label>
+          <input id="project-name" type="text" placeholder="Enter project name" autofocus />
+        </div>
+      `,
+      okText: 'Create',
+    });
+    
+    if (!name) return; // user cancelled
+    
+    const trimmed = name.trim();
+    if (!trimmed) {
+      alert('Project name cannot be empty');
+      return;
+    }
+    
     try {
       const created = await api.addProject(trimmed);
       await loadAndRender();
@@ -180,20 +276,89 @@ function bindNav() {
     }
   });
 
-  el('#toggle-completed').addEventListener('change', (e) => {
-    state.showCompleted = !!e.target.checked;
-    renderTasks();
-  });
-
   el('#view-completed-btn').addEventListener('click', () => {
     state.showCompleted = !state.showCompleted;
     el('#toggle-completed').checked = state.showCompleted;
-    renderTasks();
+    renderAll();
   });
+  
 }
 
 function bindInputs() {
-  el('#add-task-btn').addEventListener('click', onAddTask);
+  // Handle Enter key submission for new task
+  el('#new-title').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      onAddTask();
+    }
+  });
+  
+  // Handle option button clicks
+  bindOptionButtons();
+}
+
+function bindOptionButtons() {
+  // Due date button
+  el('#due-date-btn').addEventListener('click', () => {
+    toggleOptionInput('due-date-input', 'due-date-btn');
+  });
+  
+  // Priority button
+  el('#priority-btn').addEventListener('click', () => {
+    toggleOptionInput('priority-input', 'priority-btn');
+  });
+  
+  // Tags button
+  el('#tags-btn').addEventListener('click', () => {
+    toggleOptionInput('tags-input', 'tags-btn');
+  });
+  
+  // Project button
+  el('#project-btn').addEventListener('click', () => {
+    toggleOptionInput('project-input', 'project-btn');
+  });
+  
+  // Close option inputs when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.option-group')) {
+      closeAllOptionInputs();
+    }
+  });
+}
+
+function toggleOptionInput(inputId, buttonId) {
+  const input = el(`#${inputId}`);
+  const button = el(`#${buttonId}`);
+  
+  // Close all other inputs first
+  closeAllOptionInputs();
+  
+  // Toggle this input
+  if (input.style.display === 'none') {
+    input.style.display = 'block';
+    button.classList.add('active');
+    
+    // Focus the first input in the expanded section
+    const firstInput = input.querySelector('input, select');
+    if (firstInput) {
+      setTimeout(() => firstInput.focus(), 100);
+    }
+  } else {
+    input.style.display = 'none';
+    button.classList.remove('active');
+  }
+}
+
+function closeAllOptionInputs() {
+  const inputs = els('.option-input');
+  const buttons = els('.option-btn');
+  
+  inputs.forEach(input => {
+    input.style.display = 'none';
+  });
+  
+  buttons.forEach(button => {
+    button.classList.remove('active');
+  });
 }
 
 /* ---------- Data ---------- */
@@ -208,18 +373,29 @@ function renderAll() {
   renderNewTaskProjectSelect();
   renderHeaderTitle();
   renderTasks();
+  syncCompletedToggle();
+}
+
+function syncCompletedToggle() {
+  // Only sync with the bottom toggle since we removed the top one
+  // The bottom toggle is handled by the view-completed-btn click handler
+  // No need to sync anything here anymore
 }
 
 function renderProjects() {
   const ul = el('#project-list');
   ul.innerHTML = '';
   const projects = [...(state.db?.projects || [])];
-
+  
   projects.forEach((p) => {
     const li = document.createElement('li');
 
     const btn = document.createElement('button');
     btn.className = 'project-item';
+    if (p.id === 'inbox') {
+      btn.className += ' inbox-project';
+      btn.title = 'Default project (cannot be deleted)';
+    }
     btn.textContent = p.name;
     btn.addEventListener('click', () => {
       state.view = { type: 'project', projectId: p.id };
@@ -231,15 +407,30 @@ function renderProjects() {
     kebab.title = 'Project menu';
     kebab.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const choice = projectMenu();
+      const choice = await projectMenu(p.id === 'inbox');
       if (choice === 'rename') {
-        const name = prompt('Rename project:', p.name);
+        const name = await promptModal({
+          title: 'Rename Project',
+          bodyHTML: `
+            <div class="form-group">
+              <label for="project-name">New Name</label>
+              <input id="project-name" type="text" value="${p.name}" autofocus />
+            </div>
+          `,
+          okText: 'Rename',
+        });
         if (name && name.trim()) {
-          await api.renameProject(p.id, name.trim());
+          const trimmed = name.trim();
+          if (trimmed === p.name) return; // No change
+          if (!trimmed) {
+            alert('Project name cannot be empty');
+            return;
+          }
+          await api.renameProject(p.id, trimmed);
           await loadAndRender();
         }
       } else if (choice === 'delete') {
-        if (p.id === 'inbox') return alert('Cannot delete Inbox');
+        if (p.id === 'inbox') return; // This should never happen now, but safety check
         const ok = confirm(`Delete "${p.name}"? Tasks will move to Inbox.`);
         if (ok) {
           await api.deleteProject(p.id);
@@ -254,16 +445,45 @@ function renderProjects() {
   });
 }
 
-function projectMenu() {
-  const r = prompt('Project action: type "rename" or "delete"');
-  if (r === 'rename' || r === 'delete') return r;
-  return null;
+function projectMenu(isInbox = false) {
+  return new Promise((resolve) => {
+    const modal = el('#modal');
+    el('#modal-title').textContent = 'Project Action';
+    el('#modal-body').innerHTML = `
+      <p>Choose an action:</p>
+      <div class="form-group" style="margin-top: 16px;">
+        <button id="rename-action" class="modal-actions button" style="width: 100%; margin-bottom: 8px; padding: 12px;">Rename Project</button>
+        <button id="delete-action" class="modal-actions button" style="width: 100%; padding: 12px; ${isInbox ? 'display: none;' : ''}">Delete Project</button>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+
+    const renameBtn = el('#rename-action');
+    const deleteBtn = el('#delete-action');
+    const cancel = el('#modal-cancel');
+
+    const finish = (choice) => {
+      modal.classList.add('hidden');
+      resolve(choice);
+    };
+
+    renameBtn.onclick = () => finish('rename');
+    deleteBtn.onclick = () => finish('delete');
+    cancel.onclick = () => finish(null);
+
+    // Hide delete button for inbox project
+    if (isInbox) {
+      deleteBtn.style.display = 'none';
+    }
+  });
 }
 
 function renderNewTaskProjectSelect() {
   const sel = el('#new-project');
   sel.innerHTML = '';
-  (state.db?.projects || []).forEach((p) => {
+  const projects = state.db?.projects || [];
+  
+  projects.forEach((p) => {
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
@@ -271,10 +491,17 @@ function renderNewTaskProjectSelect() {
   });
   if (state.view.type === 'project' && state.view.projectId) sel.value = state.view.projectId;
   else sel.value = 'inbox';
+  
+  // Set default due date to today
+  const dueDateInput = el('#new-due');
+  if (dueDateInput) {
+    dueDateInput.value = dateToYMD(new Date());
+  }
 }
 
 function renderHeaderTitle() {
   const h = el('#view-title');
+  
   if (state.view.type === 'today') h.textContent = 'Today';
   else if (state.view.type === 'week') h.textContent = 'Week';
   else if (state.view.type === 'all') h.textContent = 'All tasks';
@@ -288,9 +515,12 @@ function renderTasks() {
   const container = el('#task-container');
   container.innerHTML = '';
 
-  if (state.view.type === 'week') return renderWeekList(container);
+  if (state.view.type === 'week') {
+    return renderWeekList(container);
+  }
 
   const tasks = getFilteredTasks();
+  
   if (!tasks.length) {
     container.innerHTML = `<div style="padding:16px;color:#8a94a6;">No tasks yet.</div>`;
     return;
@@ -298,7 +528,7 @@ function renderTasks() {
   tasks.forEach((t) => container.appendChild(renderTaskItem(t)));
 }
 
-/* ---------- NEW: Todoist-like vertical Week view ---------- */
+/* ---------- NEW: Vertical Week view ---------- */
 function renderWeekList(container) {
   const list = document.createElement('div');
   list.className = 'week-list';
@@ -334,14 +564,73 @@ function renderWeekList(container) {
       .filter((t) => (state.showCompleted ? true : !t.completed))
       .filter((t) => t.dueDate === ymd);
 
-    if (!tasks.length) {
-      const empty = document.createElement('div');
-      empty.className = 'day-empty';
-      empty.textContent = '—';
-      body.appendChild(empty);
-    } else {
+    console.log(`Day ${ymd}: showCompleted=${state.showCompleted}, total tasks=${tasks.length}, completed=${tasks.filter(t => t.completed).length}`);
+
+    // Add tasks first
+    if (tasks.length > 0) {
       sortTasks(tasks).forEach((t) => body.appendChild(renderTaskItem(t)));
     }
+
+    // Add task creation input inline (always show)
+    const taskInput = document.createElement('div');
+    taskInput.className = 'day-task-input';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Add a task...';
+    input.className = 'day-task-title-input';
+    
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+';
+    addBtn.className = 'day-task-add-btn';
+    addBtn.title = 'Add task';
+    addBtn.disabled = true; // Start disabled
+    
+    // Handle task creation for this specific day
+    const handleAddTask = async () => {
+      const title = input.value.trim();
+      if (!title) return;
+      
+      try {
+        const created = await api.addTask({
+          title,
+          dueDate: ymd, // Set due date to this specific day
+          priority: 0,
+          tags: [],
+          projectId: 'inbox'
+        });
+        
+        // Clear input and refresh
+        input.value = '';
+        addBtn.disabled = true; // Disable button after clearing
+        await loadAndRender();
+        
+        // Switch to week view to show the new task
+        state.view = { type: 'week', projectId: null };
+        renderAll();
+      } catch (err) {
+        console.error('Failed to add task:', err);
+        alert(`Failed to add task: ${err?.message || err}`);
+      }
+    };
+    
+    // Enable/disable button based on input text
+    const updateButtonState = () => {
+      addBtn.disabled = !input.value.trim();
+    };
+    
+    input.addEventListener('input', updateButtonState);
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        handleAddTask();
+      }
+    });
+    
+    addBtn.addEventListener('click', handleAddTask);
+    
+    taskInput.appendChild(input);
+    taskInput.appendChild(addBtn);
+    body.appendChild(taskInput);
 
     section.appendChild(body);
     list.appendChild(section);
@@ -366,12 +655,25 @@ function renderTaskItem(t) {
 
   const meta = node.querySelector('.task-meta');
   meta.innerHTML = '';
+  
+  // Add priority indicator
+  if (t.priority > 0) {
+    const priorityIndicator = document.createElement('span');
+    priorityIndicator.className = `priority-indicator p${t.priority}`;
+    priorityIndicator.title = `Priority ${t.priority}`;
+    meta.appendChild(priorityIndicator);
+  }
+  
   if (t.projectId) {
     const p = (state.db?.projects || []).find((x) => x.id === t.projectId);
     if (p) meta.appendChild(chip(p.name));
   }
   if (t.dueDate) meta.appendChild(chip(`Due ${formatYMD(t.dueDate)}`));
-  if (t.priority) meta.appendChild(chip(`P${t.priority}`));
+  if (t.priority > 0) {
+    const priorityChip = chip(`P${t.priority}`);
+    priorityChip.className += ` priority-${t.priority}`;
+    meta.appendChild(priorityChip);
+  }
   (t.tags || []).forEach((tag) => meta.appendChild(chip(`#${tag}`)));
   if (t.completed && t.dateCompleted)
     meta.appendChild(chip(`Done ${formatDateTime(t.dateCompleted)}`));
@@ -380,21 +682,65 @@ function renderTaskItem(t) {
   const delBtn = node.querySelector('.delete-btn');
 
   editBtn.addEventListener('click', async () => {
-    const newTitle = prompt('Title:', t.title);
-    if (newTitle == null) return;
-    const newDesc = prompt('Description:', t.description || '');
-    if (newDesc == null) return;
-    const newDue = prompt('Due date (YYYY-MM-DD or blank):', t.dueDate || '');
-    const newPriority = prompt('Priority (0-3):', String(t.priority ?? 0));
-    const newTags = prompt('Tags (comma-separated):', (t.tags || []).join(', '));
-    const projName = prompt('Project (type exact name):', getProjectName(t.projectId));
+    const editResult = await promptModal({
+      title: 'Edit Task',
+      bodyHTML: `
+        <div class="form-group">
+          <label for="edit-title">Title</label>
+          <input id="edit-title" type="text" value="${t.title}" />
+        </div>
+        <div class="form-group">
+          <label for="edit-description">Description</label>
+          <textarea id="edit-description">${t.description || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label for="edit-due">Due Date</label>
+          <input id="edit-due" type="date" value="${t.dueDate || ''}" />
+        </div>
+        <div class="form-group">
+          <label for="edit-priority">Priority</label>
+          <select id="edit-priority">
+            <option value="0" ${t.priority === 0 ? 'selected' : ''}>None</option>
+            <option value="1" ${t.priority === 1 ? 'selected' : ''} style="color: var(--priority-1); font-weight: 600;">1</option>
+            <option value="2" ${t.priority === 2 ? 'selected' : ''} style="color: var(--priority-2); font-weight: 600;">2</option>
+            <option value="3" ${t.priority === 3 ? 'selected' : ''} style="color: var(--priority-3); font-weight: 600;">3</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-tags">Tags (comma-separated)</label>
+          <input id="edit-tags" type="text" value="${(t.tags || []).join(', ')}" />
+        </div>
+        <div class="form-group">
+          <label for="edit-project">Project</label>
+          <select id="edit-project">
+            ${(state.db?.projects || []).map(p => 
+              `<option value="${p.id}" ${p.id === t.projectId ? 'selected' : ''}>${p.name}</option>`
+            ).join('')}
+          </select>
+        </div>
+      `,
+      okText: 'Save',
+    });
+    
+    if (!editResult) return; // user cancelled
+    
+    const newTitle = el('#edit-title')?.value;
+    const newDesc = el('#edit-description')?.value;
+    const newDue = el('#edit-due')?.value;
+    const newPriority = el('#edit-priority')?.value;
+    const newTags = el('#edit-tags')?.value;
+    const newProjectId = el('#edit-project')?.value;
+    
+    if (!newTitle || !newTitle.trim()) {
+      alert('Title is required');
+      return;
+    }
 
-    const projectId = projectIdByName(projName?.trim()) ?? t.projectId;
-
-    const dueTrim = (newDue ?? '').trim();
+    // Date picker validation is simpler - it's either empty or a valid date
+    const dueTrim = newDue?.trim() || '';
     const dueValid = !dueTrim || /^\d{4}-\d{2}-\d{2}$/.test(dueTrim);
     if (!dueValid) {
-      alert('Invalid date. Use YYYY-MM-DD or leave blank.');
+      alert('Invalid date format.');
       return;
     }
 
@@ -404,24 +750,37 @@ function renderTaskItem(t) {
       return;
     }
 
+    const updateData = {
+      id: t.id,
+      title: newTitle.trim(),
+      description: newDesc || '',
+      dueDate: dueTrim ? dueTrim : null,
+      priority: pr,
+      tags: newTags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      projectId: newProjectId,
+    };
+
+    console.log('Updating task with data:', updateData);
+
     await api
-      .updateTask({
-        id: t.id,
-        title: newTitle,
-        description: newDesc,
-        dueDate: dueTrim ? dueTrim : null,
-        priority: pr,
-        tags: (newTags || '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        projectId,
-      })
+      .updateTask(updateData)
       .catch((err) => {
         console.error('updateTask failed', err);
         alert('Failed to update task. Check console for details.');
       });
+    
+    // Close the modal and refresh the view
     await loadAndRender();
+    
+    // If we're in week view and the date changed, make sure to stay in week view
+    if (state.view.type === 'week' && updateData.dueDate !== t.dueDate) {
+      // The task might have moved to a different day, so refresh week view
+      state.view = { type: 'week', projectId: null };
+      renderAll();
+    }
   });
 
   delBtn.addEventListener('click', async () => {
@@ -443,12 +802,15 @@ function chip(text) {
 /* ---------- Filtering ---------- */
 function getFilteredTasks() {
   const all = state.db?.tasks || [];
+  
   if (state.view.type === 'all') {
-    return sortTasks(all.filter((t) => state.showCompleted || !t.completed));
+    const filtered = sortTasks(all.filter((t) => state.showCompleted || !t.completed));
+    return filtered;
   }
   if (state.view.type === 'project') {
     const filtered = all.filter((t) => t.projectId === state.view.projectId);
-    return sortTasks(filtered.filter((t) => state.showCompleted || !t.completed));
+    const result = sortTasks(filtered.filter((t) => state.showCompleted || !t.completed));
+    return result;
   }
   if (state.view.type === 'today') {
     const ymd = dateToYMD(new Date());
@@ -457,9 +819,11 @@ function getFilteredTasks() {
       if (t.dueDate) return t.dueDate <= ymd;
       return true;
     });
-    return sortTasks(filtered);
+    const result = sortTasks(filtered);
+    return result;
   }
-  return sortTasks(all.filter((t) => state.showCompleted || !t.completed));
+  const result = sortTasks(all.filter((t) => state.showCompleted || !t.completed));
+  return result;
 }
 
 /* ---------- Add Task ---------- */
@@ -469,17 +833,20 @@ async function onAddTask() {
     alert('Title is required');
     return;
   }
-  const dueDate = el('#new-due').value || null;
-  const priority = Number(el('#new-priority').value || '0');
-  const tags = (el('#new-tags').value || '')
+  
+  // Get values from option inputs (they might be hidden)
+  const dueDate = el('#new-due')?.value || null;
+  const priority = Number(el('#new-priority')?.value || '0');
+  const tags = (el('#new-tags')?.value || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const projectId = el('#new-project').value || 'inbox';
+  const projectId = el('#new-project')?.value || 'inbox';
 
   // Basic validation for add
+  // Date picker validation is simpler - it's either empty or a valid date
   if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-    alert('Invalid date. Use YYYY-MM-DD or leave blank.');
+    alert('Invalid date format.');
     return;
   }
   if (!Number.isInteger(priority) || priority < 0 || priority > 3) {
@@ -496,9 +863,12 @@ async function onAddTask() {
     return;
   }
 
+  // Clear inputs and close option panels
   el('#new-title').value = '';
-  el('#new-due').value = '';
-  el('#new-tags').value = '';
+  if (el('#new-due')) el('#new-due').value = dateToYMD(new Date());
+  if (el('#new-tags')) el('#new-tags').value = '';
+  closeAllOptionInputs();
+  
   await loadAndRender();
 
   if (created?.dueDate) {
@@ -552,7 +922,7 @@ function formatDateTime(s) {
   }
 }
 function sortTasks(arr) {
-  return arr.slice().sort((a, b) => {
+  const sorted = arr.slice().sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
     if (a.dueDate && b.dueDate) {
       if (a.dueDate < b.dueDate) return -1;
@@ -562,6 +932,7 @@ function sortTasks(arr) {
     if ((b.priority || 0) !== (a.priority || 0)) return (b.priority || 0) - (a.priority || 0);
     return new Date(a.createdAt) - new Date(b.createdAt);
   });
+  return sorted;
 }
 function getProjectName(id) {
   return (state.db?.projects || []).find((p) => p.id === id)?.name || 'Inbox';

@@ -1,18 +1,21 @@
-import { app, BrowserWindow, ipcMain, dialog, systemPreferences } from 'electron';
-import path from 'node:path';
+import { app, BrowserWindow, ipcMain, systemPreferences, dialog } from 'electron';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, basename } from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import os from 'node:os';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import keytar from 'keytar';
+import os from 'node:os';
+
+console.log('=== MAIN PROCESS STARTED ===');
+console.log('Console.log is working in main process');
 
 const KEYTAR_SERVICE = 'PrivateTodo';
 const KEYTAR_ACCOUNT = 'encryption-key';
 
 // ----- ESM-safe pathing (critical fix) -----
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 let mainWindow;
 const isDev = process.env.NODE_ENV === 'development';
@@ -20,9 +23,9 @@ const isDev = process.env.NODE_ENV === 'development';
 const ARCHIVE_THRESHOLD = 2000; // move old completed tasks to archive past this count
 
 const userDataDir = app.getPath('userData');
-const dbPath = path.join(userDataDir, 'db.json');
-const archivePath = path.join(userDataDir, 'archive.json');
-const settingsPath = path.join(userDataDir, 'settings.json');
+const dbPath = join(userDataDir, 'db.json');
+const archivePath = join(userDataDir, 'archive.json');
+const settingsPath = join(userDataDir, 'settings.json');
 
 // Session-only key
 let sessionKey = null;
@@ -42,40 +45,59 @@ const defaultDB = {
 };
 
 app.whenReady().then(async () => {
+  console.log('App is ready, initializing...');
   await ensureFiles();
+  console.log('Files ensured, creating window...');
   await createWindow();
+  console.log('Window created, setting up app events...');
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+  console.log('App initialization complete');
 });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
 async function createWindow() {
+  console.log('Creating main window...');
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: 'Todoist Offline',
+    minWidth: 800,
+    minHeight: 600,
+    title: 'Private Todo',
     webPreferences: {
       contextIsolation: true,
       // !!! Use __dirname-based absolute path for preload
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: join(__dirname, 'preload.cjs'),
       sandbox: false,
     },
     frame: false,
     backgroundColor: '#111418',
   });
   // !!! Use __dirname to load the renderer HTML
-  await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  await mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'));
+  console.log('Main window loaded successfully');
   if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
 /* ---------- File helpers ---------- */
 async function ensureFiles() {
-  if (!existsSync(userDataDir)) await fs.mkdir(userDataDir, { recursive: true });
-  if (!existsSync(settingsPath)) await writeSettings(defaultSettings);
-  if (!existsSync(dbPath)) await writeJSONFile(dbPath, defaultDB, false);
+  console.log('Ensuring files exist...');
+  if (!existsSync(userDataDir)) {
+    console.log('Creating user data directory');
+    await fs.mkdir(userDataDir, { recursive: true });
+  }
+  if (!existsSync(settingsPath)) {
+    console.log('Creating default settings');
+    await writeSettings(defaultSettings);
+  }
+  if (!existsSync(dbPath)) {
+    console.log('Creating default database with structure:', defaultDB);
+    await writeJSONFile(dbPath, defaultDB, false);
+  }
+  console.log('Files ensured successfully');
 }
 
 async function readSettings() {
@@ -87,17 +109,43 @@ async function writeSettings(s) {
 }
 
 async function readJSONFile(file, encrypted) {
-  if (!existsSync(file)) return null;
-  const raw = await fs.readFile(file, 'utf8');
-  const obj = JSON.parse(raw);
-  if (encrypted) {
-    if (!obj || obj._enc !== true) throw new Error('Expected encrypted file');
-    if (!sessionKey) throw new Error('Locked: no session key');
-    return decryptPayload(obj, sessionKey);
+  if (!existsSync(file)) {
+    console.log(`File does not exist: ${file}`);
+    return null;
   }
-  return obj;
+
+  try {
+    const raw = await fs.readFile(file, 'utf8');
+    const obj = JSON.parse(raw);
+
+    console.log(`readJSONFile ${file}:`, {
+      encrypted,
+      hasData: !!obj,
+      dataType: typeof obj,
+      hasProjects: !!obj?.projects,
+      projectsCount: obj?.projects?.length || 0,
+    });
+
+    if (encrypted) {
+      if (!obj || obj._enc !== true) throw new Error('Expected encrypted file');
+      if (!sessionKey) throw new Error('Locked: no session key');
+      return decryptPayload(obj, sessionKey);
+    }
+    return obj;
+  } catch (error) {
+    console.error(`Error reading JSON file ${file}:`, error);
+    throw error;
+  }
 }
 async function writeJSONFile(file, data, encrypted) {
+  console.log(`writeJSONFile ${file}:`, {
+    encrypted,
+    hasData: !!data,
+    dataType: typeof data,
+    hasProjects: !!data?.projects,
+    projectsCount: data?.projects?.length || 0,
+  });
+
   if (encrypted) {
     if (!sessionKey) throw new Error('Locked: no session key');
     const payload = encryptPayload(data, sessionKey);
@@ -105,11 +153,30 @@ async function writeJSONFile(file, data, encrypted) {
   } else {
     await atomicWrite(file, JSON.stringify(data, null, 2));
   }
+
+  console.log(`writeJSONFile ${file} completed successfully`);
 }
 async function atomicWrite(file, contents) {
-  const tmp = path.join(path.dirname(file), `${path.basename(file)}.${Date.now()}.tmp`);
-  await fs.writeFile(tmp, contents, 'utf8');
-  await fs.rename(tmp, file);
+  const tmp = join(dirname(file), `${basename(file)}.${Date.now()}.tmp`);
+  console.log(`atomicWrite ${file}:`, {
+    tmpFile: tmp,
+    contentLength: contents?.length || 0,
+  });
+
+  try {
+    await fs.writeFile(tmp, contents, 'utf8');
+    await fs.rename(tmp, file);
+    console.log(`atomicWrite ${file} completed successfully`);
+  } catch (error) {
+    console.error(`atomicWrite ${file} failed:`, error);
+    // Clean up temp file if it exists
+    try {
+      if (existsSync(tmp)) await fs.unlink(tmp);
+    } catch (cleanupError) {
+      console.warn('Failed to cleanup temp file:', cleanupError);
+    }
+    throw error;
+  }
 }
 
 /* ---------- Crypto ---------- */
@@ -159,16 +226,45 @@ async function loadAllData(settings) {
   const current = (await readJSONFile(dbPath, enc)) ?? structuredClone(defaultDB);
   let archive = { version: 1, createdAt: current.createdAt, projects: [], tasks: [] };
   if (existsSync(archivePath)) archive = await readJSONFile(archivePath, enc);
+
+  console.log('loadAllData - raw data:', {
+    hasCurrent: !!current,
+    currentProjects: current?.projects,
+    currentProjectsLength: current?.projects?.length || 0,
+    hasArchive: !!archive,
+    archiveProjects: archive?.projects,
+    archiveProjectsLength: archive?.projects?.length || 0,
+  });
+
   const projMap = new Map();
   [...(archive.projects || []), ...(current.projects || [])].forEach((p) => projMap.set(p.id, p));
   const projects = [...projMap.values()];
   const tasks = [...(current.tasks || []), ...(archive.tasks || [])];
+
+  console.log('loadAllData - merged result:', {
+    projectsCount: projects.length,
+    tasksCount: tasks.length,
+    currentProjectsCount: current.projects?.length || 0,
+    archiveProjectsCount: archive.projects?.length || 0,
+  });
+
   return { projects, tasks, current, archive };
 }
 async function saveCurrentAndMaybeArchive(settings, merged) {
   const enc = !!settings.encryptionEnabled;
   let current = merged.current;
   let archive = merged.archive;
+
+  console.log('saveCurrentAndMaybeArchive - input:', {
+    hasCurrent: !!current,
+    currentProjectsCount: current?.projects?.length || 0,
+    currentTasksCount: current?.tasks?.length || 0,
+    hasArchive: !!archive,
+    archiveProjectsCount: archive?.projects?.length || 0,
+    archiveTasksCount: archive?.tasks?.length || 0,
+    encryptionEnabled: enc,
+  });
+
   if ((current.tasks?.length || 0) > ARCHIVE_THRESHOLD) {
     const overflow = current.tasks.length - ARCHIVE_THRESHOLD;
     const completed = current.tasks
@@ -186,9 +282,15 @@ async function saveCurrentAndMaybeArchive(settings, merged) {
       if (!archive.createdAt) archive.createdAt = new Date().toISOString();
     }
   }
+
+  console.log('About to write current DB with projects count:', current.projects?.length || 0);
   await writeJSONFile(dbPath, current, enc);
+  console.log('Current DB written successfully');
+
   if ((archive.tasks?.length || 0) > 0 || existsSync(archivePath)) {
+    console.log('About to write archive with projects count:', archive.projects?.length || 0);
     await writeJSONFile(archivePath, archive, enc);
+    console.log('Archive written successfully');
   }
 }
 
@@ -278,57 +380,69 @@ ipcMain.handle('security:disable', async () => {
 });
 
 ipcMain.handle('security:unlock', async (_evt, { passcode }) => {
+  console.log('=== SECURITY UNLOCK CALLED ===');
+  console.log('Event data:', _evt);
+  
   const s = await readSettings();
+  console.log('Settings loaded:', s);
+  
   if (!s.encryptionEnabled) return { ok: true }; // nothing to unlock
 
+  console.log('Security unlock called with:', { 
+    hasPasscode: !!passcode, 
+    useBiometrics: s.useBiometrics, 
+    biometricsAvailable: biometricsAvailable(),
+    settings: s
+  });
+
   let key = null;
-  if (s.useBiometrics && biometricsAvailable()) {
+
+  // Try biometrics first if enabled and available and no passcode provided
+  if (!passcode && s.useBiometrics && biometricsAvailable()) {
+    console.log('Biometrics are enabled and available, attempting biometric unlock...');
     try {
+      console.log('About to prompt Touch ID...');
       await systemPreferences.promptTouchID('Unlock your tasks'); // UI gate
+      console.log('Touch ID prompt completed successfully');
+      
+      console.log('About to access keychain...');
       const stored = await keytar.getPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);
+      console.log('Keychain access result:', { hasStored: !!stored, storedLength: stored?.length });
+      
       if (stored) {
+        console.log('Stored key found, converting to buffer...');
         key = Buffer.from(stored, 'base64');
         sessionKey = key;
+        console.log('Unlocked successfully with biometrics, sessionKey set');
+        return { ok: true, method: 'biometrics' };
+      } else {
+        console.log('No stored key found in keychain - returning NO_BIO_KEY without falling back');
+        return { ok: false, code: 'NO_BIO_KEY', reason: 'Missing keychain entry' };
       }
     } catch (e) {
+      console.log('Biometrics failed with error:', e.message);
+      console.log('Error details:', e);
+      console.log('Error stack:', e.stack);
       // Prompt canceled or Keychain failure; will fall back to passcode.
     }
-  }
-  if (!sessionKey) {
-    // Fallback: derive from passcode
-    key = await deriveKey(passcode, s);
-    sessionKey = key;
-  }
-
-  // 2) Try to read encrypted DB. If it fails, migrate plaintext (if any) to encrypted using the key we just set.
-  try {
-    if (existsSync(dbPath)) {
-      await readJSONFile(dbPath, true); // just a validation read
-    } else {
-      // No file -> create encrypted default
-      await writeJSONFile(dbPath, defaultDB, true);
-    }
-  } catch {
-    // Likely plaintext from a prior run; migrate it
-    if (existsSync(dbPath)) {
-      const plain = JSON.parse(await fs.readFile(dbPath, 'utf8'));
-      await writeJSONFile(dbPath, plain, true);
-    } else {
-      await writeJSONFile(dbPath, defaultDB, true);
-    }
+  } else {
+    console.log('Biometrics not available or not enabled:', { 
+      useBiometrics: s.useBiometrics, 
+      biometricsAvailable: biometricsAvailable() 
+    });
   }
 
-  // Same migration logic for archive file (if present)
-  if (existsSync(archivePath)) {
-    try {
-      await readJSONFile(archivePath, true);
-    } catch {
-      const plainArc = JSON.parse(await fs.readFile(archivePath, 'utf8'));
-      await writeJSONFile(archivePath, plainArc, true);
-    }
+  // Fallback: derive from passcode (only if biometrics failed or not enabled)
+  if (!passcode) {
+    console.log('No passcode provided after biometric path; returning NEED_PASSCODE');
+    return { ok: false, code: 'NEED_PASSCODE' };
   }
 
-  return { ok: true };
+  console.log('Attempting passcode unlock...');
+  key = await deriveKey(passcode, s);
+  sessionKey = key;
+  console.log('Unlocked successfully with passcode');
+  return { ok: true, method: 'passcode' };
 });
 
 ipcMain.handle('security:lock', async () => {
@@ -339,21 +453,42 @@ ipcMain.handle('security:lock', async () => {
 // Projects
 
 ipcMain.handle('project:add', async (_evt, name) => {
-  const s = await readSettings();
-  const merged = await loadAllData(s);
-  const nm = String(name || '').trim();
-  if (!nm) throw new Error('Project name required');
-  // prevent dup by name (case-insensitive)
-  const exists = [...(merged.current.projects || []), ...(merged.archive.projects || [])].some(
-    (p) => p?.name?.toLowerCase() === nm.toLowerCase(),
-  );
-  if (exists) throw new Error('A project with that name already exists');
+  try {
+    const s = await readSettings();
+    const merged = await loadAllData(s);
+    const nm = String(name || '').trim();
+    if (!nm) throw new Error('Project name required');
 
-  if (!Array.isArray(merged.current.projects)) merged.current.projects = [];
-  const id = `proj_${randId()}`;
-  merged.current.projects.push({ id, name: nm, createdAt: new Date().toISOString() });
-  await saveCurrentAndMaybeArchive(s, merged);
-  return { id, name: nm };
+    console.log('Project add - merged data:', {
+      hasCurrent: !!merged.current,
+      hasProjects: !!merged.current?.projects,
+      projectsLength: merged.current?.projects?.length || 0,
+      archiveProjectsLength: merged.archive?.projects?.length || 0,
+    });
+
+    // prevent dup by name (case-insensitive)
+    const exists = [...(merged.current.projects || []), ...(merged.archive.projects || [])].some(
+      (p) => p?.name?.toLowerCase() === nm.toLowerCase(),
+    );
+    if (exists) throw new Error('A project with that name already exists');
+
+    if (!Array.isArray(merged.current.projects)) {
+      console.log('Initializing projects array');
+      merged.current.projects = [];
+    }
+    const id = `proj_${randId()}`;
+    const newProject = { id, name: nm, createdAt: new Date().toISOString() };
+    merged.current.projects.push(newProject);
+
+    console.log('About to save, projects count:', merged.current.projects.length);
+    await saveCurrentAndMaybeArchive(s, merged);
+    console.log('Project saved successfully');
+
+    return { id, name: nm };
+  } catch (error) {
+    console.error('Project add error:', error);
+    throw error;
+  }
 });
 
 ipcMain.handle('project:rename', async (_evt, { id, name }) => {
@@ -446,13 +581,28 @@ ipcMain.handle('task:delete', async (_evt, id) => {
 
 // DB: load merged view (current + archive)
 ipcMain.handle('db:load', async () => {
-  const s = await readSettings();
-  const merged = await loadAllData(s);
-  return {
-    settings: { encryptionEnabled: s.encryptionEnabled, useBiometrics: s.useBiometrics },
-    projects: merged.projects,
-    tasks: merged.tasks,
-  };
+  try {
+    const s = await readSettings();
+    const merged = await loadAllData(s);
+
+    const result = {
+      settings: { encryptionEnabled: s.encryptionEnabled, useBiometrics: s.useBiometrics },
+      projects: merged.projects,
+      tasks: merged.tasks,
+    };
+
+    console.log('db:load returning:', {
+      hasSettings: !!result.settings,
+      projectsCount: result.projects?.length || 0,
+      tasksCount: result.tasks?.length || 0,
+      projects: result.projects,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('db:load error:', error);
+    throw error;
+  }
 });
 
 /* ---------- Backup / Restore ---------- */
@@ -468,7 +618,7 @@ ipcMain.handle('backup:export', async () => {
   const s = await readSettings();
   const { filePath, canceled } = await dialog.showSaveDialog({
     title: 'Export Backup',
-    defaultPath: path.join(os.homedir(), 'todoist-offline-backup.json'),
+    defaultPath: join(os.homedir(), 'private-todo-offline-backup.json'),
     filters: [{ name: 'JSON', extensions: ['json'] }],
   });
   if (canceled || !filePath) return { ok: false };
@@ -533,7 +683,9 @@ ipcMain.handle('backup:import', async () => {
 
 /* ---------- Utils ---------- */
 function randId() {
-  return Math.random().toString(36).slice(2, 10);
+  const id = Math.random().toString(36).slice(2, 10);
+  console.log('Generated ID:', id);
+  return id;
 }
 function clampPriority(p) {
   const n = Number(p);
