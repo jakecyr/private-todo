@@ -1,6 +1,8 @@
 {
   "name": "private-todo",
   "version": "1.0.0",
+  "author": "Jake Cyr",
+  "license": "ISC",
   "description": "A secure, privacy-focused desktop task management application built with Electron. Your tasks are encrypted locally and never leave your device.",
   "main": "src/main.js",
   "type": "module",
@@ -60,24 +62,29 @@
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "target": "nsis"
     },
     "linux": {
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "target": "AppImage"
     },
     "files": [
       "src/**/*",
       "package.json",
       "assets/**/*"
     ],
-    "asar": true
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    }
   },
-  "keywords": [],
-  "author": "Jake Cyr",
-  "license": "ISC",
   "devDependencies": {
     "electron": "^37.3.0",
     "electron-builder": "^26.0.12"
