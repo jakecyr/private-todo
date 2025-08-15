@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Todoist Offline</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- Custom Title Bar -->
+    <div class="titlebar" id="titlebar">
+      <div class="tb-left">
+        <button class="tb-btn tb-close" title="Close"></button>
+        <button class="tb-btn tb-min" title="Minimize"></button>
+        <button class="tb-btn tb-max" title="Maximize"></button>
+      </div>
+      <div class="tb-center">
+        <span class="titlebar-title">Todoist Offline</span>
+      </div>
+      <div class="tb-right"></div>
+    </div>
+
+    <div id="app">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h1>Todoist Offline</h1>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item" data-view="today">Today</button>
+          <button class="nav-item" data-view="week">Week</button>
+          <button class="nav-item" data-view="all">All</button>
+        </nav>
+
+        <div class="projects">
+          <div class="projects-header">
+            <span>Projects</span>
+            <button id="add-project-btn" title="Add project">+</button>
+          </div>
+          <ul id="project-list"></ul>
+        </div>
+
+        <div class="sidebar-footer">
+          <button id="export-btn" title="Export backup">Backup</button>
+          <button id="import-btn" title="Restore backup">Restore</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="main-header">
+          <h2 id="view-title">Today</h2>
+          <div class="spacer"></div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-completed" />
+            <span>Show completed</span>
+          </label>
+        </header>
+
+        <section class="task-input">
+          <input id="new-title" placeholder="Task title" />
+          <input id="new-due" type="date" />
+          <select id="new-priority">
+            <option value="0">Priority: None</option>
+            <option value="1">Priority: 1</option>
+            <option value="2">Priority: 2</option>
+            <option value="3">Priority: 3</option>
+          </select>
+          <input id="new-tags" placeholder="tags (comma-separated)" />
+          <select id="new-project"></select>
+          <button id="add-task-btn">Add Task</button>
+        </section>
+
+        <section id="task-container" class="task-container"></section>
+
+        <footer class="main-footer">
+          <button id="view-completed-btn" class="linklike">View completed</button>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Simple modals -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-card">
+        <h3 id="modal-title"></h3>
+        <div id="modal-body"></div>
+        <div class="modal-actions">
+          <button id="modal-cancel">Cancel</button>
+          <button id="modal-ok">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <template id="task-item-template">
+      <div class="task-item">
+        <label class="checkbox"><input type="checkbox" class="complete-checkbox" /></label>
+        <div class="task-main">
+          <div class="task-title"></div>
+          <div class="task-meta"></div>
+        </div>
+        <details class="task-menu">
+          <summary>⋯</summary>
+          <div class="menu">
+            <button class="edit-btn">Edit</button>
+            <button class="delete-btn">Delete</button>
+          </div>
+        </details>
+      </div>
+    </template>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

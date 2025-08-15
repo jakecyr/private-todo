@@ -1,0 +1,37 @@
+{
+  "name": "private-todo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "org.livingwire.private-todo",
+    "productName": "Private Todo",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true
+  },
+  "keywords": [],
+  "author": "Jake Cyr",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^37.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0"
+  }
+}
