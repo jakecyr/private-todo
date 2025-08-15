@@ -16,6 +16,8 @@ const state = {
 const el = (sel) => document.querySelector(sel);
 const els = (sel) => Array.from(document.querySelectorAll(sel));
 
+let taskInputSection;
+
 /* ---- Titlebar window controls ---- */
 document.addEventListener('DOMContentLoaded', init);
 
@@ -28,6 +30,8 @@ async function init() {
     // Offer to enable encryption on first run
     await maybeEnableEncryptionFlow();
   }
+
+  taskInputSection = el('.task-input');
 
   await loadAndRender();
   bindNav();
@@ -522,6 +526,11 @@ function renderTasks() {
   const container = el('#task-container');
   container.innerHTML = '';
 
+  if (state.view.type === 'week') {
+    renderWeekList(container);
+    return;
+  }
+
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase();
     const tasks = (state.db?.tasks || []).filter((t) =>
@@ -529,23 +538,18 @@ function renderTasks() {
     );
     if (!tasks.length) {
       container.innerHTML = `<div style="padding:16px;color:#8a94a6;">No matching tasks.</div>`;
-      return;
+    } else {
+      sortTasks(tasks).forEach((t) => container.appendChild(renderTaskItem(t)));
     }
-    sortTasks(tasks).forEach((t) => container.appendChild(renderTaskItem(t)));
+    container.appendChild(taskInputSection);
     return;
-  }
-
-  if (state.view.type === 'week') {
-    return renderWeekList(container);
   }
 
   const tasks = getFilteredTasks();
-
-  if (!tasks.length) {
-    container.innerHTML = `<div style="padding:16px;color:#8a94a6;">No tasks yet.</div>`;
-    return;
+  if (tasks.length) {
+    tasks.forEach((t) => container.appendChild(renderTaskItem(t)));
   }
-  tasks.forEach((t) => container.appendChild(renderTaskItem(t)));
+  container.appendChild(taskInputSection);
 }
 
 /* ---------- NEW: Vertical Week view ---------- */
