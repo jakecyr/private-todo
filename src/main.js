@@ -46,6 +46,12 @@ const defaultDB = {
 
 app.whenReady().then(async () => {
   console.log('App is ready, initializing...');
+  
+  // Set app icon
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '..', 'assets', 'icon.png'));
+  }
+  
   await ensureFiles();
   console.log('Files ensured, creating window...');
   await createWindow();
@@ -56,7 +62,7 @@ app.whenReady().then(async () => {
   console.log('App initialization complete');
 });
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  app.quit();
 });
 
 async function createWindow() {
@@ -67,6 +73,7 @@ async function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Private Todo',
+    icon: join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       contextIsolation: true,
       // !!! Use __dirname-based absolute path for preload
@@ -79,6 +86,12 @@ async function createWindow() {
   // !!! Use __dirname to load the renderer HTML
   await mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'));
   console.log('Main window loaded successfully');
+  
+  // Set dock icon for macOS
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '..', 'assets', 'icon.png'));
+  }
+  
   if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 

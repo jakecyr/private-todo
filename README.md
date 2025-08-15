@@ -1,11 +1,16 @@
 # Private Todo
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue.svg)](https://github.com/jakecyr/private-todo)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Electron](https://img.shields.io/badge/Electron-25.0.0+-green.svg)](https://www.electronjs.org/)
-
-A secure, privacy-focused desktop task management application built with Electron. Your tasks are encrypted locally and never leave your device.
+<div align="center">
+  <img src="assets/icon.png" alt="Private Todo Logo" width="128" height="128">
+  
+  <h3>A secure, privacy-focused desktop task management application</h3>
+  <p>Your tasks are encrypted locally and never leave your device.</p>
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue.svg)](https://github.com/jakecyr/private-todo)
+  [![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
+  [![Electron](https://img.shields.io/badge/Electron-25.0.0+-green.svg)](https://www.electronjs.org/)
+</div>
 
 ## 🔒 Security Features
 
@@ -26,6 +31,13 @@ A secure, privacy-focused desktop task management application built with Electro
 - **Search**: Find tasks quickly with real-time search
 - **Backup & Restore**: Export and import encrypted backups
 - **Cross-Platform**: Works on macOS, Windows, and Linux
+
+## 📱 Screenshots
+
+<div align="center">
+  <img src="assets/preview.png" alt="Private Todo App Screenshot" width="800">
+  <p><em>Private Todo running on macOS with a clean, modern interface</em></p>
+</div>
 
 ## 🚀 Getting Started
 

@@ -1,9 +1,51 @@
 {
   "name": "private-todo",
   "version": "1.0.0",
-  "description": "",
+  "description": "A secure, privacy-focused desktop task management application built with Electron. Your tasks are encrypted locally and never leave your device.",
   "main": "src/main.js",
   "type": "module",
+  "homepage": "https://github.com/jakecyr/private-todo#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jakecyr/private-todo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jakecyr/private-todo/issues"
+  },
+  "keywords": [
+    "todo",
+    "task-manager",
+    "privacy",
+    "security",
+    "encryption",
+    "electron",
+    "desktop-app",
+    "local-storage",
+    "biometric-auth",
+    "touch-id",
+    "cross-platform",
+    "productivity",
+    "time-management",
+    "project-management",
+    "secure-notes",
+    "local-first",
+    "offline-first",
+    "zero-knowledge",
+    "end-to-end-encryption"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "darwin",
+    "win32",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "scripts": {
     "dev": "electron .",
     "build": "electron-builder --dir",
@@ -12,15 +54,24 @@
   "build": {
     "appId": "org.livingwire.private-todo",
     "productName": "Private Todo",
+    "icon": "assets/icon.png",
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
         "dmg"
-      ]
+      ],
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "icon": "assets/icon.png"
     },
     "files": [
       "src/**/*",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
     "asar": true
   },
