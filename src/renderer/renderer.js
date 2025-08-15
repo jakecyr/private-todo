@@ -89,7 +89,10 @@ async function unlockFlow() {
     `,
     okText: 'Unlock',
   });
-  if (!pass) return; // user cancelled — they'll see empty UI; can refresh to retry
+  if (!pass) {
+    await handleForgotPasscode();
+    return;
+  }
 
   try {
     const res = await api.securityUnlock(pass);
@@ -99,8 +102,8 @@ async function unlockFlow() {
     }
   } catch (e) {
     console.error('Passcode unlock failed:', e);
-    alert('Unlock failed. Try again.');
-    return unlockFlow();
+    alert('Unlock failed.');
+    await handleForgotPasscode();
   }
 }
 
@@ -127,6 +130,37 @@ async function maybeEnableEncryptionFlow() {
   }
   await api.securityEnable(p, useBio);
   state.unlocked = true;
+}
+
+async function handleForgotPasscode() {
+  const choice = await promptModalWithReturn({
+    title: 'Forgot Passcode?',
+    bodyHTML: `
+      <p>You can create a new empty environment or restore from a backup file.</p>
+    `,
+    okText: 'Create New',
+    cancelText: 'Restore Backup',
+  });
+
+  if (choice.canceled) {
+    // Restore from backup
+    const res = await api.importBackup();
+    if (res?.ok) {
+      location.reload();
+      return;
+    }
+  } else {
+    // Create new environment
+    const sure = confirm('This will erase your existing data. Continue?');
+    if (sure) {
+      await api.resetEnvironment();
+      location.reload();
+      return;
+    }
+  }
+
+  // If we get here, user canceled restore/reset. Retry unlock flow.
+  return unlockFlow();
 }
 
 /* ---------- Modal helpers ---------- */
