@@ -701,10 +701,33 @@ ipcMain.handle('backup:import', async () => {
   }
 
   return { ok: true };
-});
+  });
 
-// Allow starting fresh if passcode is lost
-ipcMain.handle('env:reset', async () => {
+  /* Window Controls */
+  ipcMain.handle('window:close', () => {
+    console.log('Window close requested');
+    mainWindow.close();
+    return { ok: true };
+  });
+
+  ipcMain.handle('window:minimize', () => {
+    console.log('Window minimize requested');
+    mainWindow.minimize();
+    return { ok: true };
+  });
+
+  ipcMain.handle('window:toggleMaximize', () => {
+    console.log('Window toggle maximize requested');
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+    return { ok: true };
+  });
+
+  // Allow starting fresh if passcode is lost
+  ipcMain.handle('env:reset', async () => {
   try {
     // remove data files if they exist
     await Promise.all([

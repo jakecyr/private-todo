@@ -17,18 +17,6 @@ const el = (sel) => document.querySelector(sel);
 const els = (sel) => Array.from(document.querySelectorAll(sel));
 
 /* ---- Titlebar window controls ---- */
-document.addEventListener('DOMContentLoaded', () => {
-  const closeBtn = document.querySelector('.tb-close');
-  const minBtn = document.querySelector('.tb-min');
-  const maxBtn = document.querySelector('.tb-max');
-  const bar = document.getElementById('titlebar');
-
-  closeBtn?.addEventListener('click', () => api.windowControls.close());
-  minBtn?.addEventListener('click', () => api.windowControls.minimize());
-  maxBtn?.addEventListener('click', () => api.windowControls.toggleMaximize());
-  bar?.addEventListener('dblclick', () => api.windowControls.toggleMaximize());
-});
-
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -44,6 +32,7 @@ async function init() {
   await loadAndRender();
   bindNav();
   bindInputs();
+  bindTitlebarButtons();
 }
 
 /* ---------- Security flows ---------- */
@@ -317,6 +306,32 @@ function bindNav() {
     renderAll();
   });
   
+}
+
+function bindTitlebarButtons() {
+  const closeBtn = document.querySelector('.tb-close');
+  const minBtn = document.querySelector('.tb-min');
+  const maxBtn = document.querySelector('.tb-max');
+  const bar = document.getElementById('titlebar');
+
+  console.log('Titlebar buttons found:', { closeBtn, minBtn, maxBtn, bar });
+
+  closeBtn?.addEventListener('click', () => {
+    console.log('Close button clicked');
+    api.windowControls.close();
+  });
+  minBtn?.addEventListener('click', () => {
+    console.log('Minimize button clicked');
+    api.windowControls.minimize();
+  });
+  maxBtn?.addEventListener('click', () => {
+    console.log('Maximize button clicked');
+    api.windowControls.toggleMaximize();
+  });
+  bar?.addEventListener('dblclick', () => {
+    console.log('Titlebar double-clicked');
+    api.windowControls.toggleMaximize();
+  });
 }
 
 function bindInputs() {

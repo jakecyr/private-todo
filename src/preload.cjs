@@ -2,6 +2,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  /* Window Controls */
+  windowControls: {
+    close: () => ipcRenderer.invoke('window:close'),
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
+  },
+
   /* Security */
   securityGetConfig: () => ipcRenderer.invoke('security:getConfig'),
   securityEnable: (passcode, useBiometrics) =>
