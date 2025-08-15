@@ -703,6 +703,33 @@ ipcMain.handle('backup:import', async () => {
   return { ok: true };
 });
 
+// Allow starting fresh if passcode is lost
+ipcMain.handle('env:reset', async () => {
+  try {
+    // remove data files if they exist
+    await Promise.all([
+      fs.unlink(dbPath).catch(() => {}),
+      fs.unlink(archivePath).catch(() => {}),
+      fs.unlink(settingsPath).catch(() => {}),
+    ]);
+
+    // remove any stored key and in-memory session
+    try {
+      await keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);
+    } catch {
+      console.warn('Keychain delete failed during env reset');
+    }
+    sessionKey = null;
+
+    // recreate default files
+    await ensureFiles();
+    return { ok: true };
+  } catch (error) {
+    console.error('env:reset error', error);
+    throw error;
+  }
+});
+
 /* ---------- Utils ---------- */
 function randId() {
   const id = Math.random().toString(36).slice(2, 10);

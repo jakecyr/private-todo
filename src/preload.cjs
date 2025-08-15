@@ -25,4 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   /* Backup */
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
+
+  /* Environment */
+  resetEnvironment: () => ipcRenderer.invoke('env:reset'),
 });
