@@ -878,39 +878,65 @@ button:active {
   }
 }
 
-/* Ensure task input remains usable */
+/* Simple task input at bottom */
 .task-input {
-  min-width: 500px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 16px;
   padding: 16px;
+  border-top: 1px solid var(--line);
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
 }
 
 .task-input-main {
   display: flex;
   gap: 8px;
   align-items: center;
+  width: 100%;
 }
 
 .task-input-main input {
   flex: 1;
-  min-width: 200px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--line);
   color: var(--text);
-  border-radius: 8px;
-  padding: 12px;
+  padding: 8px 0;
   font-size: 14px;
   transition: border-color 0.15s ease;
 }
 
 .task-input-main input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(218, 82, 77, 0.2);
+  border-bottom-color: var(--accent);
+}
+
+.task-add-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  min-width: 40px;
+}
+
+.task-add-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.task-add-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.task-add-btn:disabled {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .task-input-options {
@@ -924,79 +950,9 @@ button:active {
   position: relative;
 }
 
-.option-btn {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-width: 50px;
-  height: 32px;
-}
 
-.option-btn:hover {
-  border-color: var(--accent);
-  color: var(--text);
-  background: var(--line);
-}
 
-.option-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--line);
-}
 
-.option-icon {
-  font-size: 14px;
-}
-
-.option-label {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.option-input {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 8px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 200px;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.option-input input,
-.option-input select {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.option-input input:last-child,
-.option-input select:last-child {
-  margin-bottom: 0;
-}
-
-.option-input input:focus,
-.option-input select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
 
 #new-title {
   min-width: 200px;

@@ -394,7 +394,6 @@ ipcMain.handle('security:disable', async () => {
 
 ipcMain.handle('security:unlock', async (_evt, { passcode }) => {
   console.log('=== SECURITY UNLOCK CALLED ===');
-  console.log('Event data:', _evt);
   
   const s = await readSettings();
   console.log('Settings loaded:', s);

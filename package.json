@@ -60,6 +60,7 @@
     "appId": "org.livingwire.private-todo",
     "productName": "Private Todo",
     "icon": "assets/icon.png",
+    "publish": null,
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -90,6 +91,8 @@
       "output": "dist",
       "buildResources": "assets"
     },
+    "afterSign": null,
+    "afterAllArtifactBuild": null,
     "dmg": {
       "title": "Private Todo Installer",
       "icon": "assets/icon.png",
@@ -109,7 +112,9 @@
           "type": "link",
           "path": "/Applications"
         }
-      ]
+      ],
+      "writeUpdateInfo": false,
+      "internetEnabled": false
     }
   },
   "devDependencies": {

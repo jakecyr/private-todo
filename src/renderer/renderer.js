@@ -349,74 +349,21 @@ function bindInputs() {
     }
   });
 
-  // Handle option button clicks
-  bindOptionButtons();
-}
+  // Handle add button click for new task
+  el('#add-task-btn').addEventListener('click', onAddTask);
 
-function bindOptionButtons() {
-  // Due date button
-  el('#due-date-btn').addEventListener('click', () => {
-    toggleOptionInput('due-date-input', 'due-date-btn');
-  });
-  
-  // Priority button
-  el('#priority-btn').addEventListener('click', () => {
-    toggleOptionInput('priority-input', 'priority-btn');
-  });
-  
-  // Tags button
-  el('#tags-btn').addEventListener('click', () => {
-    toggleOptionInput('tags-input', 'tags-btn');
-  });
-  
-  // Project button
-  el('#project-btn').addEventListener('click', () => {
-    toggleOptionInput('project-input', 'project-btn');
-  });
-  
-  // Close option inputs when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.option-group')) {
-      closeAllOptionInputs();
+  // Handle input changes to enable/disable add button
+  el('#new-title').addEventListener('input', (e) => {
+    const addBtn = el('#add-task-btn');
+    if (addBtn) {
+      addBtn.disabled = !e.target.value.trim();
     }
   });
 }
 
-function toggleOptionInput(inputId, buttonId) {
-  const input = el(`#${inputId}`);
-  const button = el(`#${buttonId}`);
-  
-  // Close all other inputs first
-  closeAllOptionInputs();
-  
-  // Toggle this input
-  if (input.style.display === 'none') {
-    input.style.display = 'block';
-    button.classList.add('active');
-    
-    // Focus the first input in the expanded section
-    const firstInput = input.querySelector('input, select');
-    if (firstInput) {
-      setTimeout(() => firstInput.focus(), 100);
-    }
-  } else {
-    input.style.display = 'none';
-    button.classList.remove('active');
-  }
-}
 
-function closeAllOptionInputs() {
-  const inputs = els('.option-input');
-  const buttons = els('.option-btn');
-  
-  inputs.forEach(input => {
-    input.style.display = 'none';
-  });
-  
-  buttons.forEach(button => {
-    button.classList.remove('active');
-  });
-}
+
+
 
 /* ---------- Data ---------- */
 async function loadAndRender() {
@@ -427,7 +374,6 @@ async function loadAndRender() {
 /* ---------- Rendering ---------- */
 function renderAll() {
   renderProjects();
-  renderNewTaskProjectSelect();
   renderHeaderTitle();
   renderTasks();
   syncCompletedToggle();
@@ -906,25 +852,11 @@ async function onAddTask() {
     return;
   }
   
-  // Get values from option inputs (they might be hidden)
-  const dueDate = el('#new-due')?.value || null;
-  const priority = Number(el('#new-priority')?.value || '0');
-  const tags = (el('#new-tags')?.value || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const projectId = el('#new-project')?.value || 'inbox';
-
-  // Basic validation for add
-  // Date picker validation is simpler - it's either empty or a valid date
-  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-    alert('Invalid date format.');
-    return;
-  }
-  if (!Number.isInteger(priority) || priority < 0 || priority > 3) {
-    alert('Priority must be an integer between 0 and 3.');
-    return;
-  }
+  // Simple task creation with defaults
+  const dueDate = state.view.type === 'today' ? dateToYMD(new Date()) : null;
+  const priority = 0;
+  const tags = [];
+  const projectId = state.view.type === 'project' ? state.view.projectId : 'inbox';
 
   let created;
   try {
@@ -935,16 +867,11 @@ async function onAddTask() {
     return;
   }
 
-  // Clear inputs and close option panels
+  // Clear input and disable button
   el('#new-title').value = '';
-  if (el('#new-due')) el('#new-due').value = ''; // Clear due date instead of setting to today
-  if (el('#new-tags')) el('#new-tags').value = '';
-  closeAllOptionInputs();
+  el('#add-task-btn').disabled = true;
   
   await loadAndRender();
-
-  // Don't change the view - stay on whatever view the user was on
-  // renderAll(); // This is already called by loadAndRender()
 }
 
 /* ---------- Utilities ---------- */
