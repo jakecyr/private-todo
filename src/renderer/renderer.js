@@ -690,7 +690,9 @@ function renderTaskItem(t) {
     const p = (state.db?.projects || []).find((x) => x.id === t.projectId);
     if (p) meta.appendChild(chip(p.name));
   }
-  if (t.dueDate) meta.appendChild(chip(`Due ${formatYMD(t.dueDate)}`));
+  // Hide due date chip when tasks are displayed within week view day sections
+  if (t.dueDate && state.view.type !== 'week')
+    meta.appendChild(chip(`Due ${formatYMD(t.dueDate)}`));
   if (t.priority > 0) {
     const priorityChip = chip(`P${t.priority}`);
     priorityChip.className += ` priority-${t.priority}`;
