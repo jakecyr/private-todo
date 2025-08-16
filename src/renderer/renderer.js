@@ -686,7 +686,7 @@ function renderTaskItem(t) {
     meta.appendChild(priorityIndicator);
   }
   
-  if (t.projectId) {
+  if (t.projectId && t.projectId !== 'inbox') {
     const p = (state.db?.projects || []).find((x) => x.id === t.projectId);
     if (p) meta.appendChild(chip(p.name));
   }
