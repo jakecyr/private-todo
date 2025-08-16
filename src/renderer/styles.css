@@ -329,7 +329,7 @@ summary,
   background: #1a2028;
   border: 1px solid #2b3441;
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px;
 }
 .task-input button {
@@ -338,7 +338,7 @@ summary,
 
 /* ===== Task List Container ===== */
 .task-container {
-  padding: 10px 12px 40px;
+  padding: 10px 12px;
   overflow: auto;
   flex: 1;
 }
@@ -915,7 +915,7 @@ button:active {
   background: var(--accent);
   border: 1px solid var(--accent);
   color: white;
-  border-radius: 6px;
+  border-radius: 0;
   padding: 8px 12px;
   cursor: pointer;
   font-weight: 600;
